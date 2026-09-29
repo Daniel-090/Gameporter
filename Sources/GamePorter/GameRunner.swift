@@ -15,9 +15,7 @@ enum GameRunnerError: LocalizedError {
 final class GameRunner {
     func run(_ game: GameProfile) throws {
         let executable = URL(fileURLWithPath: game.executablePath).standardizedFileURL
-        guard FileManager.default.fileExists(atPath: executable.path) else {
-            throw GameRunnerError.executableMissing(executable.path)
-        }
+        guard FileManager.default.fileExists(atPath: executable.path) else { throw GameRunnerError.executableMissing(executable.path) }
 
         let runtimes = RuntimeDetector.detect()
         let runtime: RuntimeInfo?
@@ -27,15 +25,15 @@ final class GameRunner {
             runtime = runtimes.first { $0.name.caseInsensitiveCompare(game.runtime) == .orderedSame }
                 ?? runtimes.first { $0.executable == game.runtime }
         }
-
         guard let runtime else { throw GameRunnerError.runtimeMissing }
 
+        let graphics = GraphicsConfigurator.resolve(game.graphics, runtime: runtime)
         let prefix = GamePorterPaths.prefix(for: game)
         try FileManager.default.createDirectory(at: prefix, withIntermediateDirectories: true)
         try GamePorterPaths.ensureDirectories()
 
         var environment = ProcessInfo.processInfo.environment
-        environment.merge(GraphicsEnvironment.environment(for: game.graphics), uniquingKeysWith: { _, new in new })
+        environment.merge(GraphicsConfigurator.environment(for: graphics), uniquingKeysWith: { _, new in new })
         environment.merge(game.environment, uniquingKeysWith: { _, new in new })
         environment["WINEPREFIX"] = prefix.path
 
@@ -53,7 +51,7 @@ final class GameRunner {
 
         print("Launching \(game.name)")
         print("Runtime: \(runtime.name)")
-        print("Graphics: \(game.graphics.backend.rawValue) / \(game.graphics.api.rawValue)")
+        print("Graphics: \(graphics.backend.rawValue) / \(graphics.api.rawValue)")
 
         try process.run()
         process.waitUntilExit()
