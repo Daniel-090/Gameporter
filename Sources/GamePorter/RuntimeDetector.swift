@@ -73,11 +73,13 @@ enum RuntimeDetector {
     }
 
     static func bestRuntime() -> RuntimeInfo? {
-        detect().sorted {
-            let lhs = ($0.kind == .gptk ? 0 : 1, $0.supportsD3DMetal ? 0 : 1)
-            let rhs = ($1.kind == .gptk ? 0 : 1, $1.supportsD3DMetal ? 0 : 1)
-            return lhs < rhs
-        }.first
+        detect().min { lhs, rhs in
+            let lhsGPTK = lhs.kind == .gptk
+            let rhsGPTK = rhs.kind == .gptk
+            if lhsGPTK != rhsGPTK { return lhsGPTK }
+            if lhs.supportsD3DMetal != rhs.supportsD3DMetal { return lhs.supportsD3DMetal }
+            return lhs.executable < rhs.executable
+        }
     }
 
     private static func deduplicate(_ runtimes: [RuntimeInfo]) -> [RuntimeInfo] {
