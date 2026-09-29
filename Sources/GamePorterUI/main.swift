@@ -1,125 +1,95 @@
 import SwiftUI
 
+struct RegisteredGame: Identifiable {
+    let id: String
+    let name: String
+    let executablePath: String
+}
+
 @main
 struct GamePorterUIApp: App {
     var body: some Scene {
         WindowGroup("GamePorter") {
-            ContentView()
-                .frame(minWidth: 760, minHeight: 520)
+            ContentView().frame(minWidth: 760, minHeight: 520)
         }
-        .windowResizability(.contentSize)
     }
 }
 
 struct ContentView: View {
-    @State private var games: [GameProfile] = []
-    @State private var selectedGameID: String?
+    @State private var games: [RegisteredGame] = []
+    @State private var selectedID: String?
     @State private var status = "Ready"
 
-    private let registry = try? GameRegistry()
-    private let runner = GameRunner()
-
-    var selectedGame: GameProfile? {
-        games.first { $0.id == selectedGameID }
-    }
+    var selectedGame: RegisteredGame? { games.first { $0.id == selectedID } }
 
     var body: some View {
         NavigationSplitView {
-            List(games, selection: $selectedGameID) { game in
-                VStack(alignment: .leading, spacing: 4) {
+            List(games, selection: $selectedID) { game in
+                VStack(alignment: .leading) {
                     Text(game.name).font(.headline)
-                    Text(game.executablePath)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                    Text(game.executablePath).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
-                .padding(.vertical, 4)
             }
             .navigationTitle("Games")
-            .toolbar {
-                Button(action: reload) {
-                    Label("Refresh", systemImage: "arrow.clockwise")
-                }
-            }
+            .toolbar { Button("Refresh") { reload() } }
         } detail: {
             if let game = selectedGame {
-                GameDetailView(game: game, status: $status, onRun: run)
+                VStack(alignment: .leading, spacing: 22) {
+                    HStack {
+                        Image(systemName: "gamecontroller.fill").font(.system(size: 42))
+                        VStack(alignment: .leading) {
+                            Text(game.name).font(.largeTitle.bold())
+                            Text(game.executablePath).font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("Play") { launch(game) }.buttonStyle(.borderedProminent).keyboardShortcut(.return)
+                    }
+                    GroupBox("Status") {
+                        Text(status).frame(maxWidth: .infinity, alignment: .leading).padding()
+                    }
+                    Spacer()
+                }.padding(28)
             } else {
-                ContentUnavailableView(
-                    "No Game Selected",
-                    systemImage: "gamecontroller",
-                    description: Text("Add a Windows executable from the CLI for now.")
-                )
+                ContentUnavailableView("No Game Selected", systemImage: "gamecontroller")
             }
         }
         .task { reload() }
     }
 
+    private func registryURL() -> URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/GamePorter/games/registry.json")
+    }
+
     private func reload() {
-        guard let registry else {
-            status = "Could not open GamePorter registry."
-            return
-        }
         do {
-            games = try registry.all()
-            if selectedGameID == nil { selectedGameID = games.first?.id }
-            status = "\(games.count) game(s) registered"
+            let data = try Data(contentsOf: registryURL())
+            let raw = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] ?? []
+            games = raw.compactMap {
+                guard let id = $0["id"] as? String, let name = $0["name"] as? String,
+                      let executablePath = $0["executablePath"] as? String else { return nil }
+                return RegisteredGame(id: id, name: name, executablePath: executablePath)
+            }
+            if selectedID == nil { selectedID = games.first?.id }
+            status = "(games.count) game(s) registered"
         } catch {
-            status = error.localizedDescription
+            games = []
+            status = "No registry yet. Add a game with the CLI."
         }
     }
 
-    private func run(_ game: GameProfile) {
-        status = "Launching \(game.name)…"
+    private func launch(_ game: RegisteredGame) {
+        status = "Launching (game.name)…"
         DispatchQueue.global(qos: .userInitiated).async {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+            process.arguments = ["gameporter", "run", game.name]
             do {
-                try runner.run(game)
-                DispatchQueue.main.async { status = "Game process exited." }
+                try process.run(); process.waitUntilExit()
+                DispatchQueue.main.async { status = process.terminationStatus == 0 ? "Game exited." : "Game failed. Check the GamePorter log." }
             } catch {
-                DispatchQueue.main.async { status = error.localizedDescription }
+                DispatchQueue.main.async { status = "Could not find gameporter in PATH." }
             }
         }
-    }
-}
-
-struct GameDetailView: View {
-    let game: GameProfile
-    @Binding var status: String
-    let onRun: (GameProfile) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            HStack {
-                Image(systemName: "gamecontroller.fill")
-                    .font(.system(size: 42))
-                VStack(alignment: .leading) {
-                    Text(game.name).font(.largeTitle.bold())
-                    Text(game.executablePath).font(.caption).foregroundStyle(.secondary)
-                }
-                Spacer()
-                Button("Play") { onRun(game) }
-                    .buttonStyle(.borderedProminent)
-                    .keyboardShortcut(.return)
-            }
-
-            GroupBox("Configuration") {
-                VStack(alignment: .leading, spacing: 10) {
-                    LabeledContent("Runtime", value: game.runtime)
-                    LabeledContent("Graphics", value: "\(game.graphics.backend.rawValue) / \(game.graphics.api.rawValue)")
-                    LabeledContent("Prefix", value: GamePorterPaths.prefix(for: game).path)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding()
-            }
-
-            GroupBox("Status") {
-                Text(status)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
-            }
-
-            Spacer()
-        }
-        .padding(28)
     }
 }
