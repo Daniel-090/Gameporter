@@ -11,7 +11,7 @@ struct GamePorterApp {
         do {
             switch command {
             case "list-runtimes":
-                let runtimes = detector.detect()
+                let runtimes = RuntimeDetector.detect()
                 if runtimes.isEmpty {
                     print("No Windows runtimes detected.")
                 } else {
