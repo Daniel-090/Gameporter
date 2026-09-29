@@ -1,7 +1,7 @@
 import Foundation
 
 struct GamePorterApp {
-    private let registry = GameRegistry()
+    private let registry = try! GameRegistry()
     private let detector = RuntimeDetector()
     private let runner = GameRunner()
 
@@ -12,8 +12,13 @@ struct GamePorterApp {
         do {
             switch command {
             case "list-runtimes":
-                detector.detect().forEach {
-                    print("\($0.name): \($0.executable) [\($0.kind.rawValue)] \($0.version ?? "")")
+                let runtimes = detector.detect()
+                if runtimes.isEmpty {
+                    print("No Windows runtimes detected.")
+                } else {
+                    runtimes.forEach {
+                        print("\($0.name): \($0.executable) [\($0.kind.rawValue)] arch=\($0.architecture.rawValue) d3dmetal=\($0.supportsD3DMetal) \($0.version ?? "")")
+                    }
                 }
             case "list-games":
                 let games = try registry.all()
@@ -30,7 +35,12 @@ struct GamePorterApp {
                 print("Executable: \(game.executablePath)")
                 print("Runtime: \(game.runtime)")
                 print("Graphics: \(game.graphics.backend.rawValue) / \(game.graphics.api.rawValue)")
-                print("Prefix: \(GamePorterPaths.prefix(for: game))")
+                print("Prefix: \(GamePorterPaths.prefix(for: game).path)")
+            case "check":
+                guard args.count >= 2 else { print("Usage: gameporter check <name>"); return }
+                guard let game = try registry.find(args[1]) else { print("Game not found: \(args[1])"); return }
+                let report = CompatibilityChecker().check(game)
+                print(report.summary)
             case "run":
                 guard args.count >= 2 else { print("Usage: gameporter run <name>"); return }
                 guard let game = try registry.find(args[1]) else { print("Game not found: \(args[1])"); return }
@@ -51,6 +61,7 @@ struct GamePorterApp {
           list-games
           add <name> <exe>
           info <name>
+          check <name>
           run <name>
         """)
     }
