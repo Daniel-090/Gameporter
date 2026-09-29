@@ -9,9 +9,8 @@ let package = Package(
         .executable(name: "GamePorterUI", targets: ["GamePorterUI"])
     ],
     targets: [
-        .target(name: "GamePorterCore", path: "Sources/GamePorterCore"),
-        .executableTarget(name: "GamePorter", dependencies: ["GamePorterCore"], path: "Sources/GamePorter"),
-        .executableTarget(name: "GamePorterUI", dependencies: ["GamePorterCore"], path: "Sources/GamePorterUI"),
-        .testTarget(name: "GamePorterTests", dependencies: ["GamePorterCore"])
+        .executableTarget(name: "GamePorter"),
+        .executableTarget(name: "GamePorterUI"),
+        .testTarget(name: "GamePorterTests", dependencies: ["GamePorter"])
     ]
 )
