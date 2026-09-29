@@ -5,13 +5,15 @@ struct GameProfile: Codable, Identifiable {
     var name: String
     var executablePath: String
     var runtime: String
+    var graphics: GraphicsConfiguration
     var environment: [String: String]
 
-    init(name: String, executablePath: String, runtime: String = "auto", environment: [String: String] = [:]) {
+    init(name: String, executablePath: String, runtime: String = "auto", graphics: GraphicsConfiguration = GraphicsConfiguration(), environment: [String: String] = [:]) {
         self.id = Self.slug(name)
         self.name = name
         self.executablePath = executablePath
         self.runtime = runtime
+        self.graphics = graphics
         self.environment = environment
     }
 
