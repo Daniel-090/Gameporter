@@ -11,6 +11,7 @@ final class GamePorterTests: XCTestCase {
         let runtime = RuntimeInfo(
             name: "Test GPTK",
             executable: "/tmp/wine64",
+            launcher: nil,
             version: "test",
             kind: .gptk,
             supportsD3DMetal: true,
