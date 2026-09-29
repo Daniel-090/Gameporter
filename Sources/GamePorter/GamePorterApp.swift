@@ -2,7 +2,6 @@ import Foundation
 
 struct GamePorterApp {
     private let registry = try! GameRegistry()
-    private let detector = RuntimeDetector()
     private let runner = GameRunner()
 
     func run() {
@@ -39,7 +38,7 @@ struct GamePorterApp {
             case "check":
                 guard args.count >= 2 else { print("Usage: gameporter check <name>"); return }
                 guard let game = try registry.find(args[1]) else { print("Game not found: \(args[1])"); return }
-                let report = CompatibilityChecker().check(game)
+                let report = CompatibilityChecker.check(game)
                 print(report.summary)
             case "run":
                 guard args.count >= 2 else { print("Usage: gameporter run <name>"); return }
