@@ -3,11 +3,13 @@ import Foundation
 enum GameRunnerError: LocalizedError {
     case runtimeMissing
     case executableMissing(String)
+    case compatibilityBlocked(String)
 
     var errorDescription: String? {
         switch self {
         case .runtimeMissing: return "No compatible Windows runtime was detected."
         case .executableMissing(let path): return "Game executable does not exist: \(path)"
+        case .compatibilityBlocked(let reason): return reason
         }
     }
 }
@@ -15,15 +17,29 @@ enum GameRunnerError: LocalizedError {
 final class GameRunner {
     func run(_ game: GameProfile) throws {
         let executable = URL(fileURLWithPath: game.executablePath).standardizedFileURL
-        guard FileManager.default.fileExists(atPath: executable.path) else { throw GameRunnerError.executableMissing(executable.path) }
+        guard FileManager.default.fileExists(atPath: executable.path) else {
+            throw GameRunnerError.executableMissing(executable.path)
+        }
+
+        let report = CompatibilityChecker.check(game)
+        if report.level == .blocked {
+            throw GameRunnerError.compatibilityBlocked(report.summary)
+        }
+
+        if report.level == .warning {
+            print("Compatibility warning:")
+            report.messages.forEach { print("  - \($0)") }
+        }
 
         let runtimes = RuntimeDetector.detect()
         let runtime: RuntimeInfo?
         if game.runtime == "auto" {
             runtime = RuntimeDetector.bestRuntime()
         } else {
-            runtime = runtimes.first { $0.name.caseInsensitiveCompare(game.runtime) == .orderedSame }
-                ?? runtimes.first { $0.executable == game.runtime }
+            runtime = runtimes.first {
+                $0.name.caseInsensitiveCompare(game.runtime) == .orderedSame ||
+                $0.executable == game.runtime
+            }
         }
         guard let runtime else { throw GameRunnerError.runtimeMissing }
 
@@ -36,6 +52,10 @@ final class GameRunner {
         environment.merge(GraphicsConfigurator.environment(for: graphics), uniquingKeysWith: { _, new in new })
         environment.merge(game.environment, uniquingKeysWith: { _, new in new })
         environment["WINEPREFIX"] = prefix.path
+
+        if let d3dMetalPath = runtime.d3dMetalPath {
+            environment["GAMEPORTER_D3DMETAL_PATH"] = d3dMetalPath
+        }
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: runtime.executable)
@@ -50,8 +70,10 @@ final class GameRunner {
         process.standardError = log
 
         print("Launching \(game.name)")
-        print("Runtime: \(runtime.name)")
+        print("Runtime: \(runtime.name) [\(runtime.architecture.rawValue)]")
         print("Graphics: \(graphics.backend.rawValue) / \(graphics.api.rawValue)")
+        print("Prefix: \(prefix.path)")
+        print("Log: \(logURL.path)")
 
         try process.run()
         process.waitUntilExit()
