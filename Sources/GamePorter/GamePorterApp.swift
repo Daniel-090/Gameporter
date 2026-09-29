@@ -1,74 +1,52 @@
 import Foundation
 
-final class GamePorterApp {
-    private let registry: GameRegistry
+struct GamePorterApp {
+    private let registry = GameRegistry()
+    private let detector = RuntimeDetector()
+    private let runner = GameRunner()
 
-    init() {
-        do {
-            registry = try GameRegistry()
-        } catch {
-            fatalError("Could not initialize GamePorter: \(error)")
-        }
-    }
-
-    func run(arguments: [String]) {
-        guard let command = arguments.first else {
-            help()
-            return
-        }
+    func run() {
+        let args = Array(CommandLine.arguments.dropFirst())
+        guard let command = args.first else { printUsage(); return }
 
         do {
             switch command {
             case "list-runtimes":
-                listRuntimes()
+                detector.detect().forEach {
+                    print("\($0.name): \($0.executable) [\($0.kind.rawValue)] \($0.version ?? "")")
+                }
             case "list-games":
-                listGames()
+                let games = try registry.all()
+                if games.isEmpty { print("No games registered.") }
+                else { games.forEach { print("\($0.name) [\($0.id)] runtime=\($0.runtime) graphics=\($0.graphics.backend.rawValue)") } }
             case "add":
-                guard arguments.count >= 3 else { print("Usage: gameporter add <name> <exe>"); return }
-                let game = GameProfile(name: arguments[1], executablePath: arguments[2])
-                try registry.add(game)
-                print("Added \(game.name)")
+                guard args.count >= 3 else { print("Usage: gameporter add <name> <exe>"); return }
+                let game = try registry.add(name: args[1], executable: args[2])
+                print("Added \(game.name) [\(game.id)]")
             case "info":
-                guard arguments.count >= 2 else { print("Usage: gameporter info <name>"); return }
-                guard let game = try registry.find(arguments[1]) else { print("Game not found"); return }
+                guard args.count >= 2 else { print("Usage: gameporter info <name>"); return }
+                guard let game = try registry.find(args[1]) else { print("Game not found: \(args[1])"); return }
                 print("Name: \(game.name)")
                 print("Executable: \(game.executablePath)")
                 print("Runtime: \(game.runtime)")
+                print("Graphics: \(game.graphics.backend.rawValue) / \(game.graphics.api.rawValue)")
+                print("Prefix: \(GamePorterPaths.prefix(for: game))")
             case "run":
-                guard arguments.count >= 2 else { print("Usage: gameporter run <name>"); return }
-                guard let game = try registry.find(arguments[1]) else { print("Game not found"); return }
-                try GameRunner().run(game)
-            default:
-                help()
+                guard args.count >= 2 else { print("Usage: gameporter run <name>"); return }
+                guard let game = try registry.find(args[1]) else { print("Game not found: \(args[1])"); return }
+                try runner.run(game)
+            case "help", "--help", "-h": printUsage()
+            default: print("Unknown command: \(command)"); printUsage()
             }
         } catch {
-            print("Error: \(error)")
+            fputs("GamePorter error: \(error.localizedDescription)\n", stderr)
+            exit(1)
         }
     }
 
-    private func listRuntimes() {
-        let runtimes = RuntimeDetector.detect()
-        if runtimes.isEmpty { print("No supported runtimes detected."); return }
-        for runtime in runtimes {
-            print("\(runtime.name): \(runtime.executable)\(runtime.version.map { " — \($0)" } ?? "")")
-        }
-    }
-
-    private func listGames() {
-        do {
-            let games = try registry.all()
-            if games.isEmpty { print("No games registered."); return }
-            for game in games { print("\(game.name) — \(game.executablePath)") }
-        } catch {
-            print("Error: \(error)")
-        }
-    }
-
-    private func help() {
+    private func printUsage() {
         print("""
         GamePorter
-
-        Commands:
           list-runtimes
           list-games
           add <name> <exe>
