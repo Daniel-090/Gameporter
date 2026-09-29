@@ -31,12 +31,11 @@ final class GameRunner {
             report.messages.forEach { print("  - \($0)") }
         }
 
-        let runtimes = RuntimeDetector.detect()
         let runtime: RuntimeInfo?
         if game.runtime == "auto" {
             runtime = RuntimeDetector.bestRuntime()
         } else {
-            runtime = runtimes.first {
+            runtime = RuntimeDetector.detect().first {
                 $0.name.caseInsensitiveCompare(game.runtime) == .orderedSame ||
                 $0.executable == game.runtime
             }
@@ -58,8 +57,16 @@ final class GameRunner {
         }
 
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: runtime.executable)
-        process.arguments = [executable.path]
+        let usesGPTKLauncher = runtime.kind == .gptk && runtime.launcher != nil
+        process.executableURL = URL(fileURLWithPath: runtime.launcher ?? runtime.executable)
+
+        if usesGPTKLauncher, let launcher = runtime.launcher {
+            process.arguments = [prefix.path, executable.path]
+            print("Launcher: \(launcher)")
+        } else {
+            process.arguments = [executable.path]
+        }
+
         process.environment = environment
         process.currentDirectoryURL = executable.deletingLastPathComponent()
 
