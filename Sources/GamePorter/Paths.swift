@@ -13,4 +13,16 @@ enum GamePorterPaths {
             try fm.createDirectory(at: path, withIntermediateDirectories: true)
         }
     }
+
+    static func ensureDirectories() throws {
+        try prepare()
+    }
+
+    static func prefix(for game: GameProfile) -> URL {
+        prefixes.appendingPathComponent(game.id, isDirectory: true)
+    }
+
+    static func log(for game: GameProfile) -> URL {
+        logs.appendingPathComponent("\(game.id).log")
+    }
 }
