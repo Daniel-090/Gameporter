@@ -50,7 +50,7 @@ struct ContentView: View {
                     Spacer()
                 }.padding(28)
             } else {
-                ContentUnavailableView("No Game Selected", systemImage: "gamecontroller")
+                VStack(spacing: 12) {\n                    Image(systemName: "gamecontroller").font(.system(size: 42))\n                    Text("No Game Selected").font(.title2.bold())\n                    Text("Add a game with the CLI, then refresh.") .foregroundStyle(.secondary)\n                }
             }
         }
         .task { reload() }
