@@ -34,4 +34,26 @@ final class GamePorterTests: XCTestCase {
         XCTAssertNil(environment["WINEFSYNC"])
         XCTAssertEqual(environment["DXVK_HUD"], "1")
     }
+
+    func testCompatibilityDetects64BitPE() throws {
+        var data = Data(repeating: 0, count: 512)
+        data[0] = 0x4D
+        data[1] = 0x5A
+        data[0x3C] = 0x80
+        data[0x80] = 0x50
+        data[0x81] = 0x45
+        data[0x82] = 0x00
+        data[0x83] = 0x00
+        data[0x84] = 0x64
+        data[0x85] = 0x86
+
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("gameporter-test.exe")
+        try data.write(to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let profile = GameProfile(name: "Test", executablePath: url.path)
+        let report = CompatibilityChecker.check(profile)
+
+        XCTAssertEqual(report.gameArchitecture, .x86_64)
+    }
 }
