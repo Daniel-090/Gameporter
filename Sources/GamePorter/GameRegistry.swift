@@ -14,12 +14,19 @@ final class GameRegistry {
         return try JSONDecoder().decode([GameProfile].self, from: data)
     }
 
-    func add(_ game: GameProfile) throws {
+    @discardableResult
+    func add(_ game: GameProfile) throws -> GameProfile {
         var games = try all()
         games.removeAll { $0.id == game.id }
         games.append(game)
         let data = try JSONEncoder.pretty.encode(games)
         try data.write(to: file, options: .atomic)
+        return game
+    }
+
+    @discardableResult
+    func add(name: String, executable: String) throws -> GameProfile {
+        try add(GameProfile(name: name, executablePath: executable))
     }
 
     func find(_ name: String) throws -> GameProfile? {
