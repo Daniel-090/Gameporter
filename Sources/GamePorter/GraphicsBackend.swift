@@ -20,7 +20,18 @@ struct GraphicsConfiguration: Codable {
     var hud: Bool = false
 }
 
-enum GraphicsEnvironment {
+enum GraphicsConfigurator {
+    static func resolve(_ requested: GraphicsConfiguration, runtime: RuntimeInfo) -> GraphicsConfiguration {
+        var result = requested
+        if result.backend == .auto {
+            result.backend = runtime.supportsD3DMetal ? .d3dMetal : .dxvk
+        }
+        if result.api == .auto {
+            result.api = result.backend == .d3dMetal ? .directX12 : .directX11
+        }
+        return result
+    }
+
     static func environment(for config: GraphicsConfiguration) -> [String: String] {
         var env: [String: String] = [:]
         switch config.backend {
