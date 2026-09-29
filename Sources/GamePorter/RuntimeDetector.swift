@@ -10,6 +10,7 @@ enum RuntimeArchitecture: String {
 struct RuntimeInfo {
     let name: String
     let executable: String
+    let launcher: String?
     let version: String?
     let kind: RuntimeKind
     let supportsD3DMetal: Bool
@@ -61,6 +62,7 @@ enum RuntimeDetector {
             found.append(RuntimeInfo(
                 name: isGPTK ? "Apple Game Porting Toolkit" : "Wine",
                 executable: path,
+                launcher: isGPTK ? findGPTKLauncher(near: path) : nil,
                 version: version(of: path),
                 kind: kind,
                 supportsD3DMetal: d3dMetalPath != nil,
@@ -116,12 +118,39 @@ enum RuntimeDetector {
         }
     }
 
+    private static func findGPTKLauncher(near runtime: String) -> String? {
+        let fm = FileManager.default
+        let candidates = [
+            ProcessInfo.processInfo.environment["GAMEPORTER_GPTK_LAUNCHER"],
+            "/opt/homebrew/bin/gameportingtoolkit",
+            "/usr/local/bin/gameportingtoolkit"
+        ].compactMap { $0 }
+
+        for candidate in candidates where fm.isExecutableFile(atPath: candidate) {
+            return candidate
+        }
+
+        let runtimeURL = URL(fileURLWithPath: runtime).standardizedFileURL
+        var cursor = runtimeURL.deletingLastPathComponent()
+        for _ in 0..<5 {
+            let candidate = cursor.appendingPathComponent("gameportingtoolkit").path
+            if fm.isExecutableFile(atPath: candidate) {
+                return candidate
+            }
+            cursor.deleteLastPathComponent()
+        }
+
+        return nil
+    }
+
     private static func findD3DMetal(for runtime: String, hinted: Bool) -> String? {
         let fm = FileManager.default
         var roots: [URL] = []
 
         if let override = ProcessInfo.processInfo.environment["GAMEPORTER_D3DMETAL"] {
-            roots.append(URL(fileURLWithPath: override))
+            let url = URL(fileURLWithPath: override).standardizedFileURL
+            roots.append(url)
+            roots.append(url.deletingLastPathComponent())
         }
 
         let executableURL = URL(fileURLWithPath: runtime).standardizedFileURL
