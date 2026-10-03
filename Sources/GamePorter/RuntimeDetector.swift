@@ -36,12 +36,17 @@ enum RuntimeDetector {
         let customWine = ProcessInfo.processInfo.environment["GAMEPORTER_WINE"]
 
         var candidates: [(String, RuntimeKind, Bool)] = [
+            // GCenX/Homebrew GPTK cask.
+            ("/opt/homebrew/bin/wine64", .gptk, true),
+            ("/usr/local/bin/wine64", .gptk, true),
+
+            // Homebrew formula-style layouts.
             ("/opt/homebrew/opt/game-porting-toolkit/bin/wine64", .gptk, true),
             ("/opt/homebrew/opt/game-porting-toolkit/bin/wine", .gptk, true),
             ("/usr/local/opt/game-porting-toolkit/bin/wine64", .gptk, true),
             ("/usr/local/opt/game-porting-toolkit/bin/wine", .gptk, true),
-            ("/opt/homebrew/bin/wine64", .wine, false),
-            ("/usr/local/bin/wine64", .wine, false),
+
+            // Generic Wine installations.
             ("/usr/bin/wine", .wine, false)
         ]
 
@@ -152,6 +157,16 @@ enum RuntimeDetector {
             roots.append(url)
             roots.append(url.deletingLastPathComponent())
         }
+
+        // GCenX cask layout.
+        roots.append(URL(fileURLWithPath:
+            "/Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib/external"
+        ))
+
+        // Apple GPTK 4.x evaluation environment mounted from the DMG.
+        roots.append(URL(fileURLWithPath:
+            "/Volumes/Evaluation environment for Windows games 4.0 beta 2/redist/lib/external"
+        ))
 
         let executableURL = URL(fileURLWithPath: runtime).standardizedFileURL
         var cursor = executableURL.deletingLastPathComponent()
