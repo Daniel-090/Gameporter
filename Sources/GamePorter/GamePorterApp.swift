@@ -27,6 +27,13 @@ struct GamePorterApp {
                 guard args.count >= 3 else { print("Usage: gameporter add <name> <exe>"); return }
                 let game = try registry.add(name: args[1], executable: args[2])
                 print("Added \(game.name) [\(game.id)]")
+            case "install":
+                guard args.count >= 3 else { print("Usage: gameporter install <name> <installer.exe>"); return }
+                let game = try registry.add(name: args[1], executable: args[2])
+                print("Installing \(game.name)")
+                print("Prefix: \(GamePorterPaths.prefix(for: game).path)")
+                try runner.run(game)
+                print("Installer finished. The app is registered as \(game.name).")
             case "info":
                 guard args.count >= 2 else { print("Usage: gameporter info <name>"); return }
                 guard let game = try registry.find(args[1]) else { print("Game not found: \(args[1])"); return }
@@ -59,6 +66,7 @@ struct GamePorterApp {
           list-runtimes
           list-games
           add <name> <exe>
+          install <name> <installer.exe>
           info <name>
           check <name>
           run <name>
