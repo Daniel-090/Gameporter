@@ -120,6 +120,6 @@ final class GameRunner {
         }
 
         let windowsRelative = relative.replacingOccurrences(of: "/", with: "\\")
-        return "C:\\(windowsRelative)"
+        return "C:\\\(windowsRelative)"
     }
 }
