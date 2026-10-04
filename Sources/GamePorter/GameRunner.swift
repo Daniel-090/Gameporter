@@ -43,7 +43,12 @@ final class GameRunner {
         guard let runtime else { throw GameRunnerError.runtimeMissing }
 
         let graphics = GraphicsConfigurator.resolve(game.graphics, runtime: runtime)
-        let prefix = GamePorterPaths.prefix(for: game)
+        let prefix: URL
+        if let prefixPath = game.prefixPath, !prefixPath.isEmpty {
+            prefix = URL(fileURLWithPath: prefixPath).standardizedFileURL
+        } else {
+            prefix = GamePorterPaths.prefix(for: game)
+        }
         try FileManager.default.createDirectory(at: prefix, withIntermediateDirectories: true)
         try GamePorterPaths.ensureDirectories()
 
