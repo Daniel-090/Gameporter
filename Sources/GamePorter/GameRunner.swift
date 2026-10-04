@@ -68,6 +68,12 @@ final class GameRunner {
         if usesGPTKLauncher, let launcher = runtime.launcher {
             process.arguments = [prefix.path, executable.path]
             print("Launcher: \(launcher)")
+        } else if runtime.kind == .gptk {
+            // Launching a Windows GUI app directly through wine64 can leave the
+            // process without the Explorer desktop/shell path that GPTK expects.
+            // Use Explorer for GPTK, matching the working manual invocation.
+            process.arguments = ["explorer.exe", windowsPath(for: executable, prefix: prefix)]
+            print("GPTK launcher: explorer.exe")
         } else {
             process.arguments = [executable.path]
         }
@@ -91,5 +97,24 @@ final class GameRunner {
         process.waitUntilExit()
         try log.close()
         print("Game exited with code \(process.terminationStatus)")
+    }
+
+    private func windowsPath(for executable: URL, prefix: URL) -> String {
+        let driveC = prefix.appendingPathComponent("drive_c").standardizedFileURL
+        let executablePath = executable.standardizedFileURL.path
+        let driveCPath = driveC.path
+
+        guard executablePath == driveCPath || executablePath.hasPrefix(driveCPath + "/") else {
+            return executable.path
+        }
+
+        let relative = String(executablePath.dropFirst(driveCPath.count))
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+
+        if relative.isEmpty {
+            return "C:\\"
+        }
+
+        return "C:\\(relative.replacingOccurrences(of: "/", with: "\\"))"
     }
 }
