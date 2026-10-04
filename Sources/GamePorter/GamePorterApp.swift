@@ -28,15 +28,28 @@ struct GamePorterApp {
                 let game = try registry.add(name: args[1], executable: args[2])
                 print("Added \(game.name) [\(game.id)]")
             case "import":
-                guard args.count >= 3 else { print("Usage: gameporter import <name> <exe>"); return }
+                guard args.count >= 3 else { print("Usage: gameporter import <name> <exe> [--prefix <prefix>]"); return }
                 let executable = URL(fileURLWithPath: args[2]).standardizedFileURL
                 guard FileManager.default.isReadableFile(atPath: executable.path) else {
                     print("Executable not found or not readable: \(executable.path)")
                     return
                 }
-                let game = try registry.add(name: args[1], executable: executable.path)
+                var prefixPath: String?
+                if let prefixIndex = args.firstIndex(of: "--prefix") {
+                    guard prefixIndex + 1 < args.count else {
+                        print("Usage: gameporter import <name> <exe> [--prefix <prefix>]")
+                        return
+                    }
+                    prefixPath = URL(fileURLWithPath: args[prefixIndex + 1]).standardizedFileURL.path
+                }
+                let game = try registry.add(GameProfile(
+                    name: args[1],
+                    executablePath: executable.path,
+                    prefixPath: prefixPath
+                ))
                 print("Imported \(game.name) [\(game.id)]")
                 print("Executable: \(executable.path)")
+                if let prefixPath { print("Prefix: \(prefixPath)") }
                 print("Run with: gameporter run \"\(game.name)\"")
             case "scan":
                 guard args.count >= 2 else { print("Usage: gameporter scan <folder>"); return }
@@ -67,6 +80,7 @@ struct GamePorterApp {
                     let installedGame = GameProfile(
                         name: registeredInstaller.name,
                         executablePath: executable.path,
+                        prefixPath: prefix.path,
                         runtime: registeredInstaller.runtime,
                         graphics: registeredInstaller.graphics,
                         environment: registeredInstaller.environment
@@ -90,7 +104,7 @@ struct GamePorterApp {
                 print("Executable: \(game.executablePath)")
                 print("Runtime: \(game.runtime)")
                 print("Graphics: \(game.graphics.backend.rawValue) / \(game.graphics.api.rawValue)")
-                print("Prefix: \(GamePorterPaths.prefix(for: game).path)")
+                print("Prefix: \(game.prefixPath ?? GamePorterPaths.prefix(for: game).path)")
             case "check":
                 guard args.count >= 2 else { print("Usage: gameporter check <name>"); return }
                 guard let game = try registry.find(args[1]) else { print("Game not found: \(args[1])"); return }
@@ -153,7 +167,7 @@ struct GamePorterApp {
           list-runtimes
           list-games
           add <name> <exe>
-          import <name> <exe>
+          import <name> <exe> [--prefix <prefix>]
           scan <folder>
           install <name> <installer.exe>
           info <name>
