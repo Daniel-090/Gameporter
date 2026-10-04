@@ -94,13 +94,6 @@ struct GamePorterApp {
             options: [.skipsHiddenFiles]
         ) else { return [] }
 
-        let excludedDirectories = [
-            "/windows/",
-            "/programdata/microsoft/",
-            "/users/public/",
-            "/users/\(NSUserName())/"
-        ]
-
         return enumerator.compactMap { item -> URL? in
             guard let url = item as? URL,
                   url.pathExtension.lowercased() == "exe" else { return nil }
@@ -117,7 +110,26 @@ struct GamePorterApp {
             guard fm.isReadableFile(atPath: url.path) else { return nil }
             return url
         }
-        .sorted { $0.path.localizedCaseInsensitiveCompare($1.path) == .orderedAscending }
+        .sorted { lhs, rhs in
+            let lhsPath = lhs.path.lowercased()
+            let rhsPath = rhs.path.lowercased()
+
+            func score(_ path: String) -> Int {
+                if path.contains("/internet explorer/") || path.contains("/windows media player/") || path.contains("/windows nt/") {
+                    return 100
+                }
+                if path.contains("/microsoft/") {
+                    return 90
+                }
+                return 0
+            }
+
+            let lhsScore = score(lhsPath)
+            let rhsScore = score(rhsPath)
+            if lhsScore != rhsScore { return lhsScore < rhsScore }
+
+            return lhs.path.localizedCaseInsensitiveCompare(rhs.path) == .orderedAscending
+        }
     }
 
     private func printUsage() {
