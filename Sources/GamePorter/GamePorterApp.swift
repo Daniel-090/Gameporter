@@ -29,11 +29,36 @@ struct GamePorterApp {
                 print("Added \(game.name) [\(game.id)]")
             case "install":
                 guard args.count >= 3 else { print("Usage: gameporter install <name> <installer.exe>"); return }
-                let game = try registry.add(name: args[1], executable: args[2])
-                print("Installing \(game.name)")
-                print("Prefix: \(GamePorterPaths.prefix(for: game).path)")
-                try runner.run(game)
-                print("Installer finished. The app is registered as \(game.name).")
+
+                let installerGame = GameProfile(name: args[1], executablePath: args[2])
+                let registeredInstaller = try registry.add(installerGame)
+                print("Installing \(registeredInstaller.name)")
+                print("Prefix: \(GamePorterPaths.prefix(for: registeredInstaller).path)")
+                try runner.run(registeredInstaller)
+
+                let prefix = GamePorterPaths.prefix(for: registeredInstaller)
+                let candidates = installedExecutables(in: prefix)
+
+                if candidates.count == 1, let executable = candidates.first {
+                    let installedGame = GameProfile(
+                        name: registeredInstaller.name,
+                        executablePath: executable.path,
+                        runtime: registeredInstaller.runtime,
+                        graphics: registeredInstaller.graphics,
+                        environment: registeredInstaller.environment
+                    )
+                    try registry.add(installedGame)
+                    print("Installer finished.")
+                    print("Detected app: \(executable.path)")
+                    print("Registered as: \(installedGame.name)")
+                } else if candidates.isEmpty {
+                    print("Installer finished, but no application executable was detected.")
+                    print("Use: gameporter add <name> <path/to/app.exe>")
+                } else {
+                    print("Installer finished. Multiple application executables detected:")
+                    candidates.forEach { print("  \($0.path)") }
+                    print("Register the one you want with: gameporter add <name> <path/to/app.exe>")
+                }
             case "info":
                 guard args.count >= 2 else { print("Usage: gameporter info <name>"); return }
                 guard let game = try registry.find(args[1]) else { print("Game not found: \(args[1])"); return }
@@ -58,6 +83,41 @@ struct GamePorterApp {
             fputs("GamePorter error: \(error.localizedDescription)\n", stderr)
             exit(1)
         }
+    }
+
+    private func installedExecutables(in prefix: URL) -> [URL] {
+        let fm = FileManager.default
+        let root = prefix.appendingPathComponent("drive_c")
+        guard let enumerator = fm.enumerator(
+            at: root,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ) else { return [] }
+
+        let excludedDirectories = [
+            "/windows/",
+            "/programdata/microsoft/",
+            "/users/public/",
+            "/users/\(NSUserName())/"
+        ]
+
+        return enumerator.compactMap { item -> URL? in
+            guard let url = item as? URL,
+                  url.pathExtension.lowercased() == "exe" else { return nil }
+
+            let lower = url.path.lowercased()
+            if lower.contains("/unins") || lower.contains("/windows/") || lower.contains("/programdata/") {
+                return nil
+            }
+
+            let isProgramFile = lower.contains("/program files/")
+                || lower.contains("/program files (x86)/")
+            guard isProgramFile else { return nil }
+
+            guard fm.isReadableFile(atPath: url.path) else { return nil }
+            return url
+        }
+        .sorted { $0.path.localizedCaseInsensitiveCompare($1.path) == .orderedAscending }
     }
 
     private func printUsage() {
