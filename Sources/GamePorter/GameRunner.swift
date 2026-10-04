@@ -69,9 +69,9 @@ final class GameRunner {
             process.arguments = [prefix.path, executable.path]
             print("Launcher: \(launcher)")
         } else if runtime.kind == .gptk {
-            // Launching a Windows GUI app directly through wine64 can leave the
-            // process without the Explorer desktop/shell path that GPTK expects.
-            // Use Explorer for GPTK, matching the working manual invocation.
+            // GPTK GUI applications are launched through the Wine Explorer shell.
+            // This matches the working manual invocation and gives the app the
+            // expected Windows desktop/session context.
             process.arguments = ["explorer.exe", windowsPath(for: executable, prefix: prefix)]
             print("GPTK launcher: explorer.exe")
         } else {
@@ -94,6 +94,13 @@ final class GameRunner {
         print("Log: \(logURL.path)")
 
         try process.run()
+
+        if runtime.kind == .gptk && !usesGPTKLauncher {
+            try log.close()
+            print("Game launched through GPTK Explorer.")
+            return
+        }
+
         process.waitUntilExit()
         try log.close()
         print("Game exited with code \(process.terminationStatus)")
