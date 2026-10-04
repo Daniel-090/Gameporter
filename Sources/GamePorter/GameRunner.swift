@@ -69,9 +69,6 @@ final class GameRunner {
             process.arguments = [prefix.path, executable.path]
             print("Launcher: \(launcher)")
         } else if runtime.kind == .gptk {
-            // GPTK GUI applications are launched through the Wine Explorer shell.
-            // This matches the working manual invocation and gives the app the
-            // expected Windows desktop/session context.
             process.arguments = ["explorer.exe", windowsPath(for: executable, prefix: prefix)]
             print("GPTK launcher: explorer.exe")
         } else {
@@ -122,6 +119,7 @@ final class GameRunner {
             return "C:\\"
         }
 
-        return "C:\\(relative.replacingOccurrences(of: "/", with: "\\"))"
+        let windowsRelative = relative.replacingOccurrences(of: "/", with: "\\")
+        return "C:\\(windowsRelative)"
     }
 }
